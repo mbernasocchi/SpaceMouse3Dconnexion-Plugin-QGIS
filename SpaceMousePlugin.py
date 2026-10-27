@@ -4,11 +4,11 @@ import os
 import sys
 import time
 import weakref
-import sip
 from typing import Optional, Dict, List, Any
 from functools import lru_cache
 
-# PyQt5 imports
+# Qt imports
+from qgis.PyQt import sip
 from qgis.PyQt.QtWidgets import (
     QApplication, QAction, QMessageBox, QDialog, QVBoxLayout, 
     QLabel, QSlider, QPushButton, QWidget, QDockWidget
