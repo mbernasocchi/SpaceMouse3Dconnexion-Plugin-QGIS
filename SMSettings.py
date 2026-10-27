@@ -2,11 +2,11 @@
 
 from qgis.PyQt.QtWidgets import (QDockWidget, QWidget, QVBoxLayout, QHBoxLayout,
                             QPushButton, QFormLayout, QGroupBox, QDoubleSpinBox,
-                            QMessageBox, QFileDialog, QComboBox,QLabel)
+                            QMessageBox, QFileDialog, QComboBox, QLabel, QCheckBox)
 from qgis.PyQt.QtCore import Qt, QSettings, pyqtSignal  
 from dataclasses import dataclass, field
 from qgis.core import QgsMessageLog, Qgis
-from typing import Dict, Tuple, List
+from typing import Any, Dict, Tuple, List
 import json
 import os
 
@@ -145,6 +145,7 @@ class SettingsConfig:
     
     # Settings configuration
     DEFAULTS = get_defaults()
+    BOOLEAN_DEFAULTS = {"reverse_zoom_direction": False}
     LABELS = get_labels()
     GROUPS = get_groups()
 
@@ -203,6 +204,7 @@ class SettingsDock(QDockWidget):
         self.setWidget(self.settings_widget)
         
         self._spinboxes: Dict[str, QDoubleSpinBox] = {}
+        self._checkboxes: Dict[str, QCheckBox] = {}
         self._init_ui()
         self._load_settings()
         
@@ -248,6 +250,7 @@ class SettingsDock(QDockWidget):
         
         # Settings groups
         self._create_settings_groups(main_layout)
+        self._create_zoom_direction_setting(main_layout)
         
         # Control buttons
         self._create_control_buttons(main_layout)
@@ -315,6 +318,15 @@ class SettingsDock(QDockWidget):
             group_box.setLayout(group_layout)
             parent_layout.addWidget(group_box)
 
+    def _create_zoom_direction_setting(self, parent_layout: QVBoxLayout) -> None:
+        group_box = QGroupBox("Zoom Behavior")
+        group_layout = QVBoxLayout()
+        checkbox = QCheckBox("Reverse zoom direction (push puck to zoom out)", self)
+        self._checkboxes["reverse_zoom_direction"] = checkbox
+        group_layout.addWidget(checkbox)
+        group_box.setLayout(group_layout)
+        parent_layout.addWidget(group_box)
+
     def _create_control_buttons(self, parent_layout: QVBoxLayout) -> None:
         """Create and add control buttons"""
         button_layout = QHBoxLayout()
@@ -338,7 +350,7 @@ class SettingsDock(QDockWidget):
         spinbox.setKeyboardTracking(False)
         return spinbox
     
-    def update_values(self, settings: Dict[str, float]) -> None:
+    def update_values(self, settings: Dict[str, Any]) -> None:
         """
         Update the UI with current settings values.
         
@@ -351,6 +363,8 @@ class SettingsDock(QDockWidget):
                     # Validate value before setting
                     validated_value = SettingsConfig.validate_setting(key, float(value))
                     self._spinboxes[key].setValue(validated_value)
+                elif key in self._checkboxes:
+                    self._checkboxes[key].setChecked(bool(value))
         except Exception as e:
             QgsMessageLog.logMessage(
                 f"Error updating settings values: {str(e)}", 
@@ -379,6 +393,11 @@ class SettingsDock(QDockWidget):
                 print(f"Validated value: {validated_value}")  # Debug
                 settings.setValue(key, validated_value)
                 current_settings[key] = validated_value
+
+            for key, checkbox in self._checkboxes.items():
+                value = checkbox.isChecked()
+                settings.setValue(key, value)
+                current_settings[key] = value
             
             print(f"Final settings: {current_settings}")  # Debug
             self.applied.emit(current_settings)
@@ -418,6 +437,9 @@ class SettingsDock(QDockWidget):
                 # Validate and set the value
                 validated_value = SettingsConfig.validate_setting(key, value)
                 self._spinboxes[key].setValue(validated_value)
+            for key, default in SettingsConfig.BOOLEAN_DEFAULTS.items():
+                value = settings.value(key, default, type=bool)
+                self._checkboxes[key].setChecked(value)
         except Exception as e:
             QgsMessageLog.logMessage(
                 f"Error loading settings: {str(e)}", 
@@ -440,6 +462,8 @@ class SettingsDock(QDockWidget):
         if reply == QMessageBox.StandardButton.Yes:
             for key, (default, *_) in SettingsConfig.DEFAULTS.items():
                 self._spinboxes[key].setValue(default)
+            for key, default in SettingsConfig.BOOLEAN_DEFAULTS.items():
+                self._checkboxes[key].setChecked(default)
             # Apply the default settings
             self._apply_settings()
 
@@ -460,7 +484,10 @@ class SettingsDock(QDockWidget):
                 file_name += '.json'
 
             settings_dict = {
-                'settings': {key: spinbox.value() for key, spinbox in self._spinboxes.items()},
+                'settings': {
+                    **{key: spinbox.value() for key, spinbox in self._spinboxes.items()},
+                    **{key: checkbox.isChecked() for key, checkbox in self._checkboxes.items()}
+                },
                 'version': SettingsConfig.SETTINGS_VERSION
             }
             
@@ -503,6 +530,8 @@ class SettingsDock(QDockWidget):
                         # Validate value before setting
                         validated_value = SettingsConfig.validate_setting(key, float(value))
                         self._spinboxes[key].setValue(validated_value)
+                    elif key in self._checkboxes:
+                        self._checkboxes[key].setChecked(bool(value))
                 
                 # Apply the loaded settings
                 self._apply_settings()

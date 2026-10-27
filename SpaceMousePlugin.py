@@ -95,10 +95,11 @@ class SpaceMousePlugin(QObject):
         self.thread_mutex = QMutex()
 
         # Initialize settings with default values
-        self.settings: Dict[str, float] = {
+        self.settings: Dict[str, Any] = {
             key: SettingsConfig.get_default_value(key) 
             for key in SettingsConfig.DEFAULTS.keys()
         }
+        self.settings.update(SettingsConfig.BOOLEAN_DEFAULTS)
 
         # Get thresholds
         self.THRESHOLDS = SettingsConfig.get_default_thresholds()
@@ -135,6 +136,8 @@ class SpaceMousePlugin(QObject):
                 # Validate value is within bounds
                 value = max(min_val, min(max_val, value))
                 self.settings[key] = value
+            for key, default in SettingsConfig.BOOLEAN_DEFAULTS.items():
+                self.settings[key] = settings.value(key, default, type=bool)
 
             settings.endGroup()
             
@@ -148,6 +151,7 @@ class SpaceMousePlugin(QObject):
             # Fallback to defaults
             self.settings = {key: default for key, (default, *_) 
                             in SettingsConfig.DEFAULTS.items()}
+            self.settings.update(SettingsConfig.BOOLEAN_DEFAULTS)
             self._update_instance_settings()
 
     def _update_instance_settings(self) -> None:
@@ -310,7 +314,7 @@ class SpaceMousePlugin(QObject):
                 f"Error opening settings: {str(e)}"
             )
 
-    def _on_settings_applied(self, new_values: Dict[str, float]) -> None:
+    def _on_settings_applied(self, new_values: Dict[str, Any]) -> None:
         """
         Handle settings applied from dock.
 
@@ -358,7 +362,8 @@ class SpaceMousePlugin(QObject):
                     self.camera_controller.update_settings({
                         'move_factor': self.settings['move_factor'],
                         'rotation_factor': self.settings['rotation_factor'],
-                        'zoom_factor': self.settings['zoom_factor']
+                        'zoom_factor': self.settings['zoom_factor'],
+                        'reverse_zoom_direction': self.settings['reverse_zoom_direction']
                     })
                 except Exception as e:
                     self._log_message(f"Error updating legacy camera controller: {str(e)}", Qgis.MessageLevel.Warning)
@@ -374,7 +379,8 @@ class SpaceMousePlugin(QObject):
                             controller.update_settings({
                                 'move_factor': self.settings['move_factor'],
                                 'rotation_factor': self.settings['rotation_factor'],
-                                'zoom_factor': self.settings['zoom_factor']
+                                'zoom_factor': self.settings['zoom_factor'],
+                                'reverse_zoom_direction': self.settings['reverse_zoom_direction']
                             })
                         else:
                             invalid_entries.append((device_id, canvas_id))
@@ -511,7 +517,8 @@ class SpaceMousePlugin(QObject):
                             settings={
                                 'move_factor': self.settings['move_factor'],
                                 'rotation_factor': self.settings['rotation_factor'],
-                                'zoom_factor': self.settings['zoom_factor']
+                                'zoom_factor': self.settings['zoom_factor'],
+                                'reverse_zoom_direction': self.settings['reverse_zoom_direction']
                             },
                             thresholds=self.THRESHOLDS
                         )
@@ -951,7 +958,8 @@ class SpaceMousePlugin(QObject):
                     settings={
                         'move_factor': self.settings['move_factor'],
                         'rotation_factor': self.settings['rotation_factor'],
-                        'zoom_factor': self.settings['zoom_factor']
+                        'zoom_factor': self.settings['zoom_factor'],
+                        'reverse_zoom_direction': self.settings['reverse_zoom_direction']
                     },
                     thresholds=self.THRESHOLDS
                 )
@@ -1488,7 +1496,8 @@ class SpaceMousePlugin(QObject):
                 settings={
                     'move_factor': self.settings['move_factor'],
                     'rotation_factor': self.settings['rotation_factor'],
-                    'zoom_factor': self.settings['zoom_factor']
+                    'zoom_factor': self.settings['zoom_factor'],
+                    'reverse_zoom_direction': self.settings['reverse_zoom_direction']
                 },
                 thresholds=self.THRESHOLDS
             )
@@ -1532,7 +1541,8 @@ class SpaceMousePlugin(QObject):
                         settings={
                             'move_factor': self.settings['move_factor'],
                             'rotation_factor': self.settings['rotation_factor'],
-                            'zoom_factor': self.settings['zoom_factor']
+                            'zoom_factor': self.settings['zoom_factor'],
+                            'reverse_zoom_direction': self.settings['reverse_zoom_direction']
                         },
                         thresholds=self.THRESHOLDS
                     )
